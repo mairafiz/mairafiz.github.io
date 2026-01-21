@@ -517,6 +517,22 @@
         @keyframes spin { 100% { transform: rotate(360deg); } }
         
         .error-msg { color: #ccc; text-align: center; padding: 40px; background: #222; border-radius: 8px; margin: 20px 0; }
+        
+        .retry-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .retry-btn:hover { background: #c40812; }
 
         footer {
             text-align: center; padding: 30px 20px; color: #666; font-size: 12px;
@@ -539,7 +555,7 @@
     <!-- === VIEW 1: HOME (GRID & SEARCH) === -->
     <div id="view-home" class="view-section active">
         <header class="home-header">
-            <div class="logo" onclick="app.loadRandomHome()">MairaFiz<span style="color:#fff">STREAM</span></div>
+            <div class="logo" onclick="app.loadRandomHome()">MAIRAFIZ<span style="color:#fff">STREAM</span></div>
             <form class="search-form" id="search-form">
                 <input type="text" id="search-input" placeholder="Cari drama..." required>
                 <button type="submit"><i class="fas fa-search"></i></button>
@@ -578,7 +594,7 @@
         </div>
         
         <footer>
-            &copy; 2026 Melolo Stream. Data provided by Sansekai API.
+            &copy; 2026 MairaFiz Stream. Data provided by Sansekai API.
         </footer>
     </div>
 
@@ -593,6 +609,11 @@
         <div id="detail-loading" class="loading-spinner" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
             <div class="spinner"></div>
             <p>Mengambil detail drama...</p>
+        </div>
+        
+        <div id="detail-error" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+            <p style="color: #ccc; margin-bottom: 10px;">Gagal memuat detail drama.</p>
+            <button class="retry-btn" onclick="app.reloadDetail()"><i class="fas fa-redo"></i> Coba Lagi</button>
         </div>
 
         <div id="detail-content" style="display: none;">
@@ -756,6 +777,8 @@
                 });
 
                 video.addEventListener('waiting', () => $('#stream-loading').show());
+                
+                // HIDE SPINNER ONLY ON PLAYING
                 video.addEventListener('playing', () => $('#stream-loading').hide());
                 
                 // --- ERROR HANDLING VIDEO (SUPPRESS CONSOLE LOG ERROR) ---
@@ -766,6 +789,7 @@
                     
                     // Coba fallback ke URL berikutnya jika ada
                     if (this.streamUrls.length > 0 && this.currentStreamUrlIndex < this.streamUrls.length - 1) {
+                        $('#stream-loading p').text('Mencoba server cadangan...'); // Feedback visual
                         this.currentStreamUrlIndex++;
                         this.playStreamIndex(this.currentStreamUrlIndex);
                     } else {
@@ -774,8 +798,13 @@
                             if (err.code === 3) msg = "Format video tidak didukung.";
                             if (err.code === 4) msg = "Sumber video tidak dapat diakses (Mungkin expired/diblokir).";
                         }
-                        // Tampilkan pesan error di layar video, bukan console
-                        $('#stream-loading').html(`<p style="color:red; background:rgba(0,0,0,0.7); padding:5px; border-radius:4px;">${msg}</p>`);
+                        // Tampilkan pesan error di layar video dengan tombol retry
+                        $('#stream-loading').html(`
+                            <div style="text-align:center; background:rgba(0,0,0,0.8); padding:20px; border-radius:8px;">
+                                <p style="color:red; margin-bottom:10px;">${msg}</p>
+                                <button class="retry-btn" onclick="app.retryStream()"><i class="fas fa-redo"></i> Coba Lagi</button>
+                            </div>
+                        `);
                     }
                 });
             },
@@ -852,6 +881,25 @@
                 $('#load-more-spinner').hide();
                 $('#end-message').show();
                 $('#load-more-area').show();
+            },
+
+            // --- SHOW ERROR HELPER ---
+            showError: function(msg, retryCallback) {
+                const container = $('#drama-container');
+                container.empty();
+                
+                const errorHtml = $(`
+                    <div class="error-msg">
+                        <p style="margin-bottom:15px;">${msg}</p>
+                        ${retryCallback ? '<button class="retry-btn"><i class="fas fa-redo"></i> Coba Lagi</button>' : ''}
+                    </div>
+                `);
+                
+                if (retryCallback) {
+                    errorHtml.find('.retry-btn').on('click', retryCallback);
+                }
+                
+                container.append(errorHtml);
             },
 
             // --- LOCAL STORAGE HISTORY (FIXED) ---
@@ -986,7 +1034,7 @@
 
                         } else {
                             if(!isAppend) {
-                                this.showError('Drama tidak ditemukan.');
+                                this.showError('Drama tidak ditemukan.', () => this.doSearch(query, isAppend, isHome));
                                 this.toggleLoadMoreBtn(false);
                             } else {
                                 this.showEndMessage();
@@ -996,7 +1044,7 @@
                     error: () => {
                         $('#home-loading').hide();
                         this.setLoadingBtn(false);
-                        if(!isAppend) this.showError('Gagal memuat data. Coba lagi.');
+                        if(!isAppend) this.showError('Gagal memuat data. Coba lagi.', () => this.doSearch(query, isAppend, isHome));
                     }
                 });
             },
@@ -1041,15 +1089,18 @@
                 return addedCounter; 
             },
 
-            showError: function(msg) {
-                $('#drama-container').html(`<div class="error-msg">${msg}</div>`);
+            // --- DATA FETCHING (DETAIL) ---
+            reloadDetail: function() {
+                if(this.currentBookId) this.openDetail(this.currentBookId);
             },
 
-            // --- DATA FETCHING (DETAIL) ---
             openDetail: function(bookId, autoPlayIndex = null) {
                 this.currentBookId = bookId;
                 this.showView('view-detail');
+                
+                // Hide content & error, show loading
                 $('#detail-content').hide();
+                $('#detail-error').hide();
                 $('#detail-loading').show();
 
                 $.ajax({
@@ -1077,13 +1128,13 @@
                             }
 
                         } else {
-                            alert('Detail tidak ditemukan');
-                            this.goBack();
+                            $('#detail-loading').hide();
+                            $('#detail-error').show();
                         }
                     },
                     error: () => {
-                        alert('Gagal mengambil detail drama');
-                        this.goBack();
+                        $('#detail-loading').hide();
+                        $('#detail-error').show();
                     }
                 });
             },
@@ -1151,6 +1202,10 @@
             },
 
             // --- STREAMING LOGIC ---
+            retryStream: function() {
+                this.startStreaming(this.currentEpisodeIndex);
+            },
+
             startStreaming: function(index) {
                 if(index < 0 || index >= this.currentEpisodeList.length) return;
 
@@ -1214,15 +1269,29 @@
                             if (this.streamUrls.length > 0) {
                                 this.playStreamIndex(0);
                             } else {
-                                $('#stream-loading').html('<p>Link video tidak tersedia.</p>');
+                                $('#stream-loading').html(`
+                                    <div style="text-align:center; background:rgba(0,0,0,0.8); padding:20px; border-radius:8px;">
+                                        <p style="color:white; margin-bottom:10px;">Link video tidak tersedia.</p>
+                                        <button class="retry-btn" onclick="app.retryStream()"><i class="fas fa-redo"></i> Coba Lagi</button>
+                                    </div>
+                                `);
                             }
                         } else {
-                            $('#stream-loading').html('<p>Gagal memuat info stream.</p>');
+                            $('#stream-loading').html(`
+                                <div style="text-align:center; background:rgba(0,0,0,0.8); padding:20px; border-radius:8px;">
+                                    <p style="color:white; margin-bottom:10px;">Gagal memuat info stream.</p>
+                                    <button class="retry-btn" onclick="app.retryStream()"><i class="fas fa-redo"></i> Coba Lagi</button>
+                                </div>
+                            `);
                         }
                     },
                     error: () => {
-                        alert("Error jaringan saat memuat stream.");
-                        $('#stream-loading').hide();
+                        $('#stream-loading').html(`
+                            <div style="text-align:center; background:rgba(0,0,0,0.8); padding:20px; border-radius:8px;">
+                                <p style="color:white; margin-bottom:10px;">Error koneksi internet.</p>
+                                <button class="retry-btn" onclick="app.retryStream()"><i class="fas fa-redo"></i> Coba Lagi</button>
+                            </div>
+                        `);
                     }
                 });
             },
@@ -1257,9 +1326,17 @@
                 video.src = url;
                 video.load();
                 
-                video.play().catch(e => console.log("Auto-play prevented", e));
+                video.play().catch(e => {
+                    console.log("Auto-play prevented", e);
+                    // PENTING: Jika autoplay diblokir browser, spinner harus hilang agar user bisa klik play manual
+                    $('#stream-loading').hide();
+                });
                 
-                $('#stream-loading').hide();
+                // Jangan sembunyikan loading disini secara paksa
+                // Biarkan event 'playing' yang menyembunyikannya
+                // KECUALI jika kita mau kasih feedback "Menghubungkan..."
+                $('#stream-loading').show();
+                $('#stream-loading').html('<div class="spinner"></div><p>Menghubungkan...</p>');
             },
 
             playNext: function() {
