@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extreme Polymorphic Obfuscator (JS & HTML)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h2 { text-align: center; color: #89b4fa; }
+        .container {
+            background: #313244;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+        }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-group { flex: 1; margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #bac2de; font-size: 0.9em; }
+        textarea, input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            background: #181825;
+            color: #a6e3a1;
+            border: 1px solid #45475a;
+            border-radius: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            box-sizing: border-box;
+        }
+        textarea { height: 180px; resize: vertical; }
+        textarea:focus, input:focus { outline: none; border-color: #89b4fa; }
+        .help-text { font-size: 0.8em; color: #a6adc8; margin-top: 5px; display: block; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .slider-val { float: right; color: #f9e2af; font-weight: bold; }
+        
+        button {
+            background-color: #89b4fa;
+            color: #11111b;
+            border: none;
+            padding: 15px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #74c7ec; transform: translateY(-2px); }
+        .btn-copy {
+            background-color: #a6e3a1;
+            margin-top: 10px;
+            padding: 10px 15px;
+            font-size: 14px;
+        }
+        .btn-copy:hover { background-color: #94e2a4; }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .checkbox-group input { width: auto; transform: scale(1.3); }
+        .output-group { margin-top: 25px; }
+        #outputCode { background-color: #11111b; color: #f38ba8; cursor: text; }
+    </style>
+</head>
+<body>
+
+    <h2>Extreme Obfuscator V2<br><span style="font-size: 14px; color: #a6adc8;">JS & HTML Support + Anti-Debug + Domain Lock + Double Layer</span></h2>
+    
+    <div class="container">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="inputType">Tipe Input:</label>
+                <select id="inputType">
+                    <option value="js">JavaScript (.js)</option>
+                    <option value="html">HTML Document (.html)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="domainLock">Lock Domain (Opsional):</label>
+                <input type="text" id="domainLock" placeholder="contoh: domain.com, app.net">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="inputCode">Kode Sumber (JS / HTML):</label>
+            <textarea id="inputCode" placeholder="Paste kode Anda di sini..."></textarea>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="chunkSize">Ukuran Potongan Array (Lebih kecil = Lebih sulit dibaca) <span class="slider-val" id="chunkVal">50</span></label>
+                <input type="range" id="chunkSize" min="5" max="200" value="50" oninput="document.getElementById('chunkVal').innerText = this.value">
+            </div>
+            <div class="form-group">
+                <label for="junkLevel">Intensitas Kode Sampah (1 - 100) <span class="slider-val" id="junkVal">80</span></label>
+                <input type="range" id="junkLevel" min="1" max="100" value="80" oninput="document.getElementById('junkVal').innerText = this.value">
+            </div>
+        </div>
+
+        <div class="checkbox-group">
+            <input type="checkbox" id="antiDebug" checked>
+            <label for="antiDebug" style="margin:0;">Aktifkan Anti-Debugging (Proteksi DevTools / Inspect Element)</label>
+        </div>
+
+        <button onclick="processObfuscation()">Enkripsi & Obfuscate</button>
+
+        <div class="output-group">
+            <label for="outputCode">Hasil Obfuscation (Siap Pakai):</label>
+            <textarea id="outputCode" readonly placeholder="Hasil akan muncul di sini..."></textarea>
+            <button class="btn-copy" onclick="copyOutput()">Salin Hasil ke Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        // --- BASE64 HELPER ---
+        function utf8_to_b64(str) {
+            return btoa(unescape(encodeURIComponent(str)));
+        }
+
+        // --- OBFUSCATOR ENGINE ---
+        function genVar(prefix = "_0x") {
+            const hex = Math.floor(Math.random() * 0xFFFFFF).toString(16);
+            return prefix + hex;
+        }
+
+        function generateFakeCode(intensity) {
+            const v1 = genVar(); const v2 = genVar(); const v3 = genVar();
+            const patterns = [
+                `function ${v1}(${v2}){return ${v2}%0x2==0?0x1:0x0;}`,
+                `var ${v1}=function(){try{var ${v2}=window;return ${v2}['\\x70\\x65\\x72\\x66\\x6f\\x72\\x6d\\x61\\x6e\\x63\\x65']['\\x6e\\x6f\\x77']();}catch(${v3}){return 0;}};`,
+                `function ${v1}(){var ${v2}=new Date();return ${v2}['\\x67\\x65\\x74\\x54\\x69\\x6d\\x65']()%0xff;}`,
+                `var ${v1}={${v2}:function(${v3}){return ${v3}<<2;}};`,
+                `if(typeof ${v1}==='\\x75\\x6e\\x64\\x65\\x66\\x69\\x6e\\x65\\x64'){var ${v2}=function(){return false;};}`
+            ];
+            let result = "";
+            const count = Math.floor(Math.random() * (intensity / 10)) + 1;
+            for(let i=0; i<count; i++) result += patterns[Math.floor(Math.random() * patterns.length)];
+            return result;
+        }
+
+        function generateJunkArray(intensity) {
+            const name = genVar();
+            const arr = [];
+            const len = 5 + Math.floor(Math.random() * intensity);
+            for(let i=0;i<len;i++) arr.push(`"0x${Math.floor(Math.random()*0xFFFFFF).toString(16)}"`);
+            return `var ${name}=[${arr.join(',')}];`;
+        }
+
+        function buildPayload(type, rawCode, domains, antiDebug) {
+            let payload = "";
+
+            if (antiDebug && type === 'html') {
+                payload += `
+                    (function(){
+                        var _ad = function(){ var _x = new Function('debugger'); setInterval(_x, 100); };
+                        _ad();
+                    })();
+                `;
+            }
+
+            if (domains && domains.trim() !== "") {
+                const domainList = domains.split(',').map(d => d.trim()).filter(d => d);
+                if (domainList.length > 0) {
+                    const domainArrayStr = JSON.stringify(domainList);
+                    payload += `
+                        if(typeof window !== 'undefined' && window['\\x6c\\x6f\\x63\\x61\\x74\\x69\\x6f\\x6e']) {
+                            var _dl = ${domainArrayStr};
+                            var _hn = window['\\x6c\\x6f\\x63\\x61\\x74\\x69\\x6f\\x6e']['\\x68\\x6f\\x73\\x74\\x6e\\x61\\x6d\\x65'];
+                            var _ok = false;
+                            for(var i=0; i<_dl.length; i++) {
+                                if(_hn === _dl[i] || _hn.indexOf('.' + _dl[i]) !== -1) { _ok = true; break; }
+                            }
+                            if(!_ok) return; 
+                        }
+                    `;
+                }
+            }
+
+            if (type === 'html') {
+                const b64Html = utf8_to_b64(rawCode);
+                payload += `
+                    var _h = decodeURIComponent(escape(atob('${b64Html}')));
+                    document.open();
+                    document.write(_h);
+                    document.close();
+                `;
+            } else {
+                if (antiDebug) {
+                    payload += `(function(){ var _ad = function(){ var _x = new Function('debugger'); setInterval(_x, 100); }; _ad(); })();`;
+                }
+                payload += rawCode;
+            }
+
+            return payload;
+        }
+
+        function obfuscateScript(content, type, domains, chunkSize, junkLevel, antiDebug, isInternalCall = false) {
+            
+            // --- LAYER 1: OBFUSCATE INLINE JS DALAM HTML ---
+            if (type === 'html' && !isInternalCall) {
+                const regex = /<script(?![^>]*src=)([^>]*)>([\s\S]*?)<\/script>/gi;
+                content = content.replace(regex, (match, attrs, jsContent) => {
+                    if(attrs.includes('application/json') || jsContent.trim().length < 15) return match;
+                    const protectedJs = obfuscateScript(jsContent, 'js', '', chunkSize, junkLevel, false, true);
+                    // FIX: Memecah tag penutup script agar tidak dibaca oleh HTML parser browser
+                    return `<script${attrs}>\n${protectedJs}\n<` + `/script>`;
+                });
+            }
+
+            // --- LAYER 2: BUILD & ENCRYPT PAYLOAD UTAMA ---
+            const payload = buildPayload(type, content, domains, antiDebug);
+
+            const key = Math.floor(Math.random() * 255);
+            let hex = "";
+            for (let i = 0; i < payload.length; i++) {
+                let code = payload.charCodeAt(i);
+                let xor = code ^ key;
+                hex += (xor < 16 ? "0" : "") + xor.toString(16);
+            }
+
+            const chunks = [];
+            for (let i = 0; i < hex.length; i += chunkSize) {
+                chunks.push(hex.substring(i, i + chunkSize));
+            }
+
+            const vKey = genVar(); const vArr = genVar(); const vFunc = genVar();
+            const vRaw = genVar(); const vRes = genVar(); const vIdx = genVar();
+            const vHex = genVar(); const vExec = genVar();
+            
+            let finalJS = `(function(){${generateJunkArray(junkLevel)}${generateFakeCode(junkLevel)}var ${vKey}=${key};var ${vArr}=["${chunks.join('","')}"];${generateFakeCode(junkLevel)}function ${vFunc}(){var ${vRaw}=${vArr}.join('');var ${vRes}='';for(var ${vIdx}=0;${vIdx}<${vRaw}.length;${vIdx}+=2){var ${vHex}=parseInt(${vRaw}.substr(${vIdx},2),16)^${vKey};${vRes}+=String['\\x66\\x72\\x6f\\x6d\\x43\\x68\\x61\\x72\\x43\\x6f\\x64\\x65'](${vHex});}return ${vRes};}${generateJunkArray(junkLevel)}try{var ${vExec}=new Function(${vFunc}());${vExec}();}catch(e){}${generateFakeCode(junkLevel)}})();`;
+
+            if (type === 'html' && !isInternalCall) {
+                // FIX: Memecah tag penutup script di hasil akhir
+                return `<!DOCTYPE html>\n<html>\n<head><meta charset="UTF-8"></head>\n<body>\n<script>\n${finalJS}\n<` + `/script>\n</body>\n</html>`;
+            }
+
+            return finalJS;
+        }
+
+        // --- UI HANDLERS ---
+        function processObfuscation() {
+            const input = document.getElementById('inputCode').value;
+            const type = document.getElementById('inputType').value;
+            const domains = document.getElementById('domainLock').value;
+            const chunkSize = parseInt(document.getElementById('chunkSize').value);
+            const junkLevel = parseInt(document.getElementById('junkLevel').value);
+            const antiDebug = document.getElementById('antiDebug').checked;
+            const outputEl = document.getElementById('outputCode');
+
+            if (!input.trim()) {
+                alert('Mohon masukkan kode sumber (JS/HTML) terlebih dahulu!');
+                return;
+            }
+
+            try {
+                const result = obfuscateScript(input, type, domains, chunkSize, junkLevel, antiDebug, false);
+                outputEl.value = result;
+            } catch (err) {
+                alert('Terjadi kesalahan saat memproses: ' + err.message);
+            }
+        }
+
+        function copyOutput() {
+            const outputEl = document.getElementById('outputCode');
+            if (!outputEl.value) {
+                alert('Belum ada hasil yang bisa disalin.');
+                return;
+            }
+            outputEl.select();
+            outputEl.setSelectionRange(0, 99999); // Untuk perangkat mobile
+            navigator.clipboard.writeText(outputEl.value).then(() => {
+                alert("Berhasil disalin ke Clipboard!");
+            }).catch(err => {
+                alert("Gagal menyalin: " + err);
+            });
+        }
+    </script>
+</body>
+</html>
